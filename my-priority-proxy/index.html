@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>Priority OData – בדיקה בענן</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:Arial, sans-serif; max-width:1000px; margin:24px auto; padding:0 12px}
+    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    table{border-collapse:collapse; width:100%; margin-top:16px}
+    th,td{border:1px solid #ddd; padding:8px; text-align:right}
+    thead th{background:#f6f6f6}
+    #status{margin-top:8px}
+  </style>
+</head>
+<body>
+  <h1>PRIT_ORDPACK_ONE – סינון לפי תאריך יעד (DUEDATE)</h1>
+
+  <div class="row">
+    <label>תאריך: <input id="date" type="date"></label>
+    <button id="run">שלוף</button>
+    <button id="today">היום</button>
+    <span>הקריאה לשרת: <code>/api/PRIT_ORDPACK_ONE?... </code></span>
+  </div>
+
+  <div id="status"></div>
+  <div id="results"></div>
+
+<script>
+  function buildFilter(d) { return `DUEDATE eq ${d}T00:00:00Z`; }
+  function fmt(d){ return d.toISOString().slice(0,10); }
+
+  function render(rows){
+    const el = document.getElementById("results");
+    el.innerHTML = "";
+    if(!rows.length){ el.textContent = "אין נתונים."; return; }
+    const cols = Object.keys(rows[0]);
+    const t = document.createElement("table");
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    cols.forEach(c=>{ const th=document.createElement("th"); th.textContent=c; trh.appendChild(th); });
+    thead.appendChild(trh); t.appendChild(thead);
+    const tb = document.createElement("tbody");
+    rows.forEach(r=>{
+      const tr=document.createElement("tr");
+      cols.forEach(c=>{ const td=document.createElement("td"); td.textContent = r[c] ?? ""; tr.appendChild(td); });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    el.appendChild(t);
+  }
+
+  async function run(dateStr){
+    const status = document.getElementById("status");
+    const results = document.getElementById("results");
+    results.innerHTML = "";
+    if(!dateStr){ status.textContent = "בחר/י תאריך"; return; }
+
+    const url = "/api/PRIT_ORDPACK_ONE?$filter=" + encodeURIComponent(buildFilter(dateStr)) + "&$top=500";
+    status.textContent = "טוען...";
+    try{
+      const res = await fetch(url);
+      const text = await res.text();
+      let data; try{ data = JSON.parse(text); } catch { data = text; }
+      status.textContent = `HTTP ${res.status}`;
+      if(data && Array.isArray(data.value)) render(data.value);
+      else { const pre=document.createElement("pre"); pre.textContent = typeof data==="string"? data : JSON.stringify(data,null,2); results.appendChild(pre); }
+    }catch(e){ status.textContent = "שגיאה: " + (e.message || e); }
+  }
+
+  document.getElementById("run").addEventListener("click", ()=> run(document.getElementById("date").value));
+  document.getElementById("today").addEventListener("click", ()=>{
+    const d = new Date(); const s = fmt(d);
+    document.getElementById("date").value = s; run(s);
+  });
+</script>
+</body>
+</html>
