@@ -1,4 +1,8 @@
 // api/[entity].js
+const KEY = process.env.PUBLIC_ACCESS_KEY;
+const provided = req.headers['x-access-key'] || req.query.key;
+if (KEY && provided !== KEY) return res.status(403).json({ error: 'Forbidden' });
+
 export default async function handler(req, res) {
     try {
       const { entity } = req.query;
@@ -28,4 +32,5 @@ export default async function handler(req, res) {
       res.status(500).json({ error: e.message || String(e) });
     }
   }
+
   
