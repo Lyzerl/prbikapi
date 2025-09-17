@@ -1,31 +1,33 @@
-
 // api/[entity].js
 export default async function handler(req, res) {
-  // --- בדיקת גישה בעזרת העוגייה שניתנה ע"י /api/session ---
+  // ----- הגבלת מתודה -----
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
+
+  // ----- אימות גישה באמצעות עוגיית Session (HttpOnly) -----
   const REQUIRED = process.env.PUBLIC_ACCESS_KEY || "";
   if (REQUIRED) {
     const cookies = req.headers.cookie || "";
     const acc = cookies
       .split(";")
-      .map(s => s.trim())
-      .find(s => s.startsWith("acc="));
+      .map((s) => s.trim())
+      .find((s) => s.startsWith("acc="));
     const cookieVal = acc ? decodeURIComponent(acc.split("=", 2)[1] || "") : "";
     if (cookieVal !== REQUIRED) {
       return res.status(403).json({ error: "Forbidden" });
     }
   }
-  // -----------------------------------------------------------
 
-  // ... משם והלאה הקוד שלך כרגיל (PRI_BASE/PRI_USER/PRI_PASS, fetch ל-Priority וכו') ...
-}
-
-
-  // --- בדיקת ENV הכרחיים ---
+  // ----- ולידציית ENV -----
   const BASE = (process.env.PRI_BASE || "").replace(/\/$/, "");
   const USER = process.env.PRI_USER || "";
   const PASS = process.env.PRI_PASS || "";
   if (!BASE || !USER || !PASS) {
-    return res.status(500).json({ error: "Missing PRI_BASE/PRI_USER/PRI_PASS env vars" });
+    return res
+      .status(500)
+      .json({ error: "Missing PRI_BASE/PRI_USER/PRI_PASS env vars" });
   }
 
   try {
@@ -34,17 +36,21 @@ export default async function handler(req, res) {
     const qs = qIndex >= 0 ? req.url.slice(qIndex) : "";
     const targetUrl = `${BASE}/${encodeURIComponent(entity)}${qs}`;
 
-    const auth = "Basic " + Buffer.from(`${USER}:${PASS}`).toString("base64");
+    const auth =
+      "Basic " + Buffer.from(`${USER}:${PASS}`).toString("base64");
 
-    const r = await fetch(targetUrl, {
-      headers: { Authorization: auth, Accept: "application/json" },
+    const upstream = await fetch(targetUrl, {
+      headers: {
+        Authorization: auth,
+        Accept: "application/json",
+      },
     });
 
-    const contentType = r.headers.get("content-type") || "application/json";
-    const bodyText = await r.text();
-    res.status(r.status).setHeader("content-type", contentType).send(bodyText);
+    const contentType =
+      upstream.headers.get("content-type") || "application/json";
+    const text = await upstream.text();
+    res.status(upstream.status).setHeader("content-type", contentType).send(text);
   } catch (e) {
     res.status(500).json({ error: e?.message || String(e) });
   }
 }
-
