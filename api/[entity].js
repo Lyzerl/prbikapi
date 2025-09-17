@@ -1,11 +1,24 @@
+
 // api/[entity].js
 export default async function handler(req, res) {
-  // --- חובה: מפתח גישה פשוט (אופציונלי, אם הגדרת ב-ENV) ---
-  const ACCESS_KEY = process.env.PUBLIC_ACCESS_KEY || "";
-  const providedKey = req.headers["x-access-key"] || req.query.key || "";
-  if (ACCESS_KEY && providedKey !== ACCESS_KEY) {
-    return res.status(403).json({ error: "Forbidden" });
+  // --- בדיקת גישה בעזרת העוגייה שניתנה ע"י /api/session ---
+  const REQUIRED = process.env.PUBLIC_ACCESS_KEY || "";
+  if (REQUIRED) {
+    const cookies = req.headers.cookie || "";
+    const acc = cookies
+      .split(";")
+      .map(s => s.trim())
+      .find(s => s.startsWith("acc="));
+    const cookieVal = acc ? decodeURIComponent(acc.split("=", 2)[1] || "") : "";
+    if (cookieVal !== REQUIRED) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
   }
+  // -----------------------------------------------------------
+
+  // ... משם והלאה הקוד שלך כרגיל (PRI_BASE/PRI_USER/PRI_PASS, fetch ל-Priority וכו') ...
+}
+
 
   // --- בדיקת ENV הכרחיים ---
   const BASE = (process.env.PRI_BASE || "").replace(/\/$/, "");
@@ -34,3 +47,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: e?.message || String(e) });
   }
 }
+
